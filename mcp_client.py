@@ -140,9 +140,8 @@ async def main():
                 COMPLETE_RUN
 
                 Instructions:
-                - Start by calling the show_reasoning tool with a list of step-by-step reasoning steps explaining how you will solve the problem.
+                - Start by calling the show_reasoning tool exactly ONLY ONCE with a list of all step-by-step reasoning steps explaining how you will solve the problem. Once called, never call it again.
                 - When reasoning, tag each step with the reasoning type (e.g., [Arithmetic], [Logical Check]).
-                - Once Reasoning is shown, proceed further to solve the problem using the available tools.
                 - Use all available math tools to solve the problem step-by-step.
                 - When a function returns multiple values, process all of them.
                 - Apply BODMAS rules: start with the innermost parentheses and work outward.

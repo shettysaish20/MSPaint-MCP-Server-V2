@@ -38,7 +38,7 @@ def show_reasoning(steps: list) -> dict:
     return {
         "content": [TextContent(
         type="text",
-        text="Reasoning shown"
+        text="Reasoning shown. Do not call this tool again."
     )]
     }
 
