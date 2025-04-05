@@ -6,6 +6,7 @@ import asyncio
 from google import genai
 from concurrent.futures import TimeoutError
 from functools import partial
+import json
 
 # Load environment variables from .env file
 load_dotenv()
@@ -14,7 +15,7 @@ load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
 
-max_iterations = 10
+max_iterations = 20
 last_response = None
 iteration = 0
 iteration_response = []
@@ -59,7 +60,7 @@ async def main():
         print("Establishing connection to MCP server...")
         server_params = StdioServerParameters(
             command="python",
-            args=["mcp_paint_app/mcp_server.py"]
+            args=["upgraded_mcp_paint_app/mcp_server.py"]
         )
 
         async with stdio_client(server_params) as (read, write):
@@ -117,54 +118,81 @@ async def main():
                 
                 print("Created system prompt...")
                 
-                system_prompt = f"""You are a math agent with painting skills solving problems in iterations. You have access to various mathematical tools.
-                You also have access to a MSPaint application to draw and add your solution to the canvas.
+                system_prompt = f"""
+                You are a math agent with painting skills, solving complex math expressions step-by-step.
+                You have access to various mathematical tools for calculations and verifications, as well as an MSPaint application to draw and present your solution on a canvas.
 
-                Available tools:
+                Available Tools:
                 {tools_description}
 
-                MSPaint Application information:
-                Rectangle co-ordinates: x1 = 763, y1 = 595, x2 = 1788, y2 = 1123
+                MSPaint Application Information:
+                - Rectangle coordinates: x1 = 763, y1 = 595, x2 = 1788, y2 = 1123
 
+                You must respond with EXACTLY ONE LINE in one of these formats (no additional text):
 
-                You must respond with EXACTLY ONE line in one of these formats (no additional text):
                 1. For function calls:
-                FUNCTION_CALL: function_name|param1|param2|...
-                
+                FUNCTION_CALL: {{"name": function_name, "arguments": {{"param1": value1, "param2": value2}}}}
+
                 2. For final answers:
-                FINAL_ANSWER: number
+                FINAL_ANSWER: <NUMBER>
 
-                3. For drawing in Paint:
-                USE_PAINT: function_name|param1|param2|...
-
-                4. For completing the task:
+                3. For completing the task:
                 COMPLETE_RUN
 
-                Important:
-                - When a function returns multiple values, you need to process all of them
-                - Only give FINAL_ANSWER when you have completed all necessary calculations
-                - Only USE_PAINT when you are ready to draw in Paint with the FINAL_ANSWER
-                - Using paint Steps:
-                    - First start the paint application by calling open_paint
-                    - Then draw a rectangle using draw_rectangle giving correct parameters
-                    - Finally add text using add_text_in_paint with the FINAL_ANSWER: number as text
-                    - You must call these functions in the correct order
-                - Do not include multiple responses. Give ONE response at a time.
-                - Do not include any explanations or additional text.
-                - Do not repeat function calls with the same parameters
-                - After you have completed the task, you can call COMPLETE_RUN to end the program
+                Instructions:
+                - Start by calling the show_reasoning tool with a list of step-by-step reasoning steps explaining how you will solve the problem.
+                - When reasoning, tag each step with the reasoning type (e.g., [Arithmetic], [Logical Check]).
+                - Use all available math tools to solve the problem step-by-step.
+                - When a function returns multiple values, process all of them.
+                - Apply BODMAS rules: start with the innermost parentheses and work outward.
+                - Do not skip steps — perform all calculations sequentially.
+                - Respond only with one line at a time.
+                - Call only one tool per response.
+                - After calculating a number, verify it by calling:
+                FUNCTION_CALL: {{"name": "verify_calculation", "arguments": {{"expression": <MATH_EXPRESSION>, "expected": <NUMBER>}}}}
+                - If verify_calculation returns False, re-evaluate your previous steps.
+                - Once verified, submit your final result using:
+                FINAL_ANSWER: <NUMBER>
 
-                Examples:
-                - FUNCTION_CALL: add|5|3
-                - FUNCTION_CALL: strings_to_chars_to_int|INDIA
-                - FINAL_ANSWER: 42
-                - USE_PAINT: draw_rectangle|763|595|1788|1123
-                - COMPLETE_RUN
+                Paint Instructions:
+                - To draw in Paint, follow this sequence strictly:
+                1. Call open_paint to start the Paint application.
+                2. Verify Paint is open using verify_paint_open.
+                3. If verify_paint_open returns False, retry opening Paint until it succeeds.
+                4. After Paint is open, draw a rectangle using draw_rectangle with correct parameters.
+                5. Add text using add_text_in_paint, inserting your FINAL_ANSWER: <NUMBER>.
 
-                DO NOT include any explanations or additional text.
-                Your entire response should be a single line starting with either FUNCTION_CALL: or FINAL_ANSWER: or USE_PAINT: or COMPLETE_RUN"""
+                Final Step:
+                - After completing all calculations, verifications, and drawings, call:
+                COMPLETE_RUN
 
-                query = """Return the sum of first 20 Fibonacci numbers."""
+                Strictly follow the above guidelines.
+                Your entire response should always be a single line starting with either FUNCTION_CALL:, FINAL_ANSWER: or COMPLETE_RUN."""
+
+
+                ## verify_consistency part-
+                # - Once you reach a final answer, check for consistency of all steps and calculations by calling:
+                # FUNCTION_CALL: {{"name": "verify_consistency", "arguments": {{"steps": (<MATH_EXPRESSION1>, <ANSWER1>), (<MATH_EXPRESSION2>, <ANSWER2>), ...}}}}
+                # - If verify_consistency returns False, re-evaluate your previous steps.
+
+                # 3. For calling any paint tools:
+                # USE_PAINT: {{"name": function_name, "arguments": {{"param1": value1, "param2": value2}}}}
+                # Commented out example for testing
+                # Examples:
+                # User: Solve (2 + 3) * 4
+                # Assistant: FUNCTION_CALL: show_reasoning|["1. First, solve inside parentheses: 2 + 3", "2. Then multiply the result by 4"]
+                # User: Next step?
+                # Assistant: FUNCTION_CALL: add|2 + 3
+                # User: Result is 5. Let's verify this step.
+                # Assistant: FUNCTION_CALL: verify|2 + 3|5
+                # User: Verified. Next step?
+                # Assistant: FUNCTION_CALL: calculate|5 * 4
+                # User: Result is 20. Let's verify the final answer.
+                # Assistant: FUNCTION_CALL: verify|(2 + 3) * 4|20
+                # User: Verified correct.
+                # Assistant: FINAL_ANSWER: [20]
+
+                query = """Solve (3 + ( 9 * 3 )) / 15 - 2"""
                 print("Starting iteration loop...")
                 
                 # Use global iteration variables
@@ -176,7 +204,7 @@ async def main():
                         current_query = query
                     else:
                         current_query = current_query + "\n\n" + " ".join(iteration_response)
-                        current_query = current_query + "  What should I do next?"
+                        current_query = current_query + "  What should you do next?"
 
                     # Get model's response with timeout
                     print("Preparing to generate LLM response...")
@@ -189,7 +217,7 @@ async def main():
                         # Find the FUNCTION_CALL line in the response
                         for line in response_text.split('\n'):
                             line = line.strip()
-                            if (line.startswith("FUNCTION_CALL:") or line.startswith("USE_PAINT:")):
+                            if (line.startswith("FUNCTION_CALL:")): # or line.startswith("USE_PAINT:")):
                                 response_text = line
                                 break
                         
@@ -198,13 +226,19 @@ async def main():
                         break
 
 
-                    if response_text.startswith("FUNCTION_CALL:") or response_text.startswith("USE_PAINT:"):
+                    if response_text.startswith("FUNCTION_CALL:"): # or response_text.startswith("USE_PAINT:"):
+                        ## Pre-process function_info
                         _, function_info = response_text.split(":", 1)
-                        parts = [p.strip() for p in function_info.split("|")]
-                        func_name, params = parts[0], parts[1:]
+                        # parts = [p.strip() for p in function_info.split("|")]
+                        # func_name, params = parts[0], parts[1:]
+                        function_info = function_info.strip()
+                        function_info = json.loads(function_info)
+
+                        func_name = function_info.get("name")
+                        params = function_info.get("arguments", {})
                         
                         print(f"\nDEBUG: Raw function info: {function_info}")
-                        print(f"DEBUG: Split parts: {parts}")
+                        # print(f"DEBUG: Split parts: {parts}")
                         print(f"DEBUG: Function name: {func_name}")
                         print(f"DEBUG: Raw parameters: {params}")
                         
@@ -227,7 +261,7 @@ async def main():
                                 if not params:  # Check if we have enough parameters
                                     raise ValueError(f"Not enough parameters provided for {func_name}")
                                     
-                                value = params.pop(0)  # Get and remove the first parameter
+                                value = params.get(param_name)  # Get and remove the first parameter
                                 param_type = param_info.get('type', 'string')
                                 
                                 print(f"DEBUG: Converting parameter {param_name} with value {value} to type {param_type}")
@@ -241,7 +275,7 @@ async def main():
                                     # Handle array input
                                     if isinstance(value, str):
                                         value = value.strip('[]').split(',')
-                                    arguments[param_name] = [int(x.strip()) for x in value]
+                                    arguments[param_name] = [int(x.strip()) if x.strip().isdigit() else str(x.strip()) for x in value]
                                 else:
                                     arguments[param_name] = str(value)
 
@@ -297,7 +331,7 @@ async def main():
                         print("\n=== Math Agent Execution Complete ===")
                         iteration_response.append(
                                 f"In the {iteration + 1} you completed calculations with {response_text}."
-                                f"Now call the paint tools starting with USE_PAINT: open_paint"
+                                f"Now call the paint tools starting with open_paint"
                                 f"Then draw_rectangle with Rectangle co-ordinates followed by add_text_in_paint with the {response_text} as text."
                             )
                         last_response = iteration_result

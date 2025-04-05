@@ -1,0 +1,10 @@
+mcp
+fastmcp
+python-dotenv
+Pillow
+numpy
+uvicorn
+pywin32
+pywinauto
+google-genai
+rich
