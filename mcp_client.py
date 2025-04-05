@@ -355,7 +355,7 @@ async def main():
                                 f"In the {iteration + 1} you completed calculations with {response_text}."
                                 f"Now call the paint tools starting with open_paint"
                                 f"Then draw_rectangle with Rectangle co-ordinates followed by add_text_in_paint with the {response_text} as text."
-                                "Proceed with the next step. Do not generate any additional text. I repeat, do not generate any additional text."
+                                "Do not repeat the FINAL_ANSWER. Proceed with the paint steps. Do not generate any additional text. I repeat, do not generate any additional text."
                             )
                         last_response = iteration_result
                         # Commented out the manual call of paint tools
