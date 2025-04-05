@@ -38,7 +38,7 @@ def show_reasoning(steps: list) -> dict:
     return {
         "content": [TextContent(
         type="text",
-        text="Reasoning shown. Do not call this tool again."
+        text="REASONING SHOWN. FOLLOW THIS INSTRUCTION STRICTLY. PROCEED FURTHER. DO NOT CALL THIS TOOL AGAIN! YOU HAVE CALLED IT ONCE! DO NOT REPEAT THIS TOOL CALL! I REPEAT, DO NOT CALL THIS FUNTCION AGAIN!"
     )]
     }
 
@@ -70,14 +70,14 @@ def verify_paint_open() -> dict:
         console.print("[green]Paint is open![/green]")
         return {"content": TextContent(
             type="text",
-            text="TRUE: Paint is open!"
+            text="TRUE: Paint is open! Proceed with the next step. Do not generate any additional text."
         )
         }
     else:
         console.print("[red]Paint is not open![/red]")
         return {"content": [TextContent(
             type="text",
-            text="FALSE: Paint is not open!"
+            text="FALSE: Paint is not open! Try opening it again. Do not generate any additional text."
         )]
         }
 
@@ -238,7 +238,8 @@ def verify_consistency(steps: list) -> TextContent:
                 "issues": issues,
                 "warnings": warnings,
                 "insights": insights,
-                "result": True if consistency_score > 80 else False
+                "result": True if consistency_score > 80 else False,
+                "next_step": "Return the final result as FINAL_ANSWER: <NUMBER>" if consistency_score > 80 else "Please review the steps and try again."
             })
         )
     except Exception as e:
@@ -441,7 +442,7 @@ async def draw_rectangle(x1: int, y1: int, x2: int, y2: int) -> dict:
             "content": [
                 TextContent(
                     type="text",
-                    text=f"Rectangle drawn from ({x1},{y1}) to ({x2},{y2})"
+                    text=f"Rectangle drawn from ({x1},{y1}) to ({x2},{y2}). Proceed with the next step. Do not generate any additional text."
                 )
             ]
         }
@@ -450,7 +451,7 @@ async def draw_rectangle(x1: int, y1: int, x2: int, y2: int) -> dict:
             "content": [
                 TextContent(
                     type="text",
-                    text=f"Error drawing rectangle: {str(e)}"
+                    text=f"Error drawing rectangle: {str(e)}. Retry this step."
                 )
             ]
         }
@@ -506,7 +507,7 @@ async def add_text_in_paint(text: str) -> dict:
             "content": [
                 TextContent(
                     type="text",
-                    text=f"Text:'{text}' added successfully"
+                    text=f"Text:'{text}' added successfully. Proceed with the next step. Do not generate any additional text."
                 )
             ]
         }
@@ -552,7 +553,7 @@ async def open_paint() -> dict:
             "content": [
                 TextContent(
                     type="text",
-                    text="Paint opened successfully on primary monitor and maximized"
+                    text="Paint opened successfully on primary monitor and maximized. Proceed with the next step. Do not generate any additional text."
                 )
             ]
         }
@@ -561,7 +562,7 @@ async def open_paint() -> dict:
             "content": [
                 TextContent(
                     type="text",
-                    text=f"Error opening Paint: {str(e)}"
+                    text=f"Error opening Paint: {str(e)}. Retry this step."
                 )
             ]
         }

@@ -15,7 +15,7 @@ load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
 
-max_iterations = 20
+max_iterations = 30
 last_response = None
 iteration = 0
 iteration_response = []
@@ -140,7 +140,7 @@ async def main():
                 COMPLETE_RUN
 
                 Instructions:
-                - Start by calling the show_reasoning tool exactly ONLY ONCE with a list of all step-by-step reasoning steps explaining how you will solve the problem. Once called, never call it again.
+                - Start by calling the show_reasoning tool ONLY ONCE with a list of all step-by-step reasoning steps explaining how you will solve the problem. Once called, NEVER CALL IT AGAIN UNDER ANY CIRCUMSTANCES.
                 - When reasoning, tag each step with the reasoning type (e.g., [Arithmetic], [Logical Check]).
                 - Use all available math tools to solve the problem step-by-step.
                 - When a function returns multiple values, process all of them.
@@ -154,7 +154,7 @@ async def main():
                 - Once you reach a final answer, check for consistency of all steps and calculations by calling:
                 FUNCTION_CALL: {{"name": "verify_consistency", "arguments": {{"steps": [[<MATH_EXPRESSION1>, <ANSWER1>], [<MATH_EXPRESSION2>, <ANSWER2>], ...]}}}} 
                 - If verify_consistency returns False, re-evaluate your previous steps.
-                - Once verified, submit your final result using:
+                - Once verify_consistency return True, submit your final result as:
                 FINAL_ANSWER: <NUMBER>
 
                 Paint Instructions:
@@ -195,7 +195,7 @@ async def main():
                 # User: Verified correct.
                 # Assistant: FINAL_ANSWER: [20]
 
-                query = """Solve (3 + ( 9 * 3 )) / 15 - 2"""
+                query = """Solve ((3000 - (400+552)) / 2 + 1024"""
                 print("Starting iteration loop...")
                 
                 # Use global iteration variables
@@ -207,7 +207,7 @@ async def main():
                         current_query = query
                     else:
                         current_query = current_query + "\n\n" + " ".join(iteration_response)
-                        current_query = current_query + "  What should you do next?"
+                        current_query = current_query + "  What should you do next? Do not generate any additional text."
 
                     # Get model's response with timeout
                     print("Preparing to generate LLM response...")
@@ -304,9 +304,11 @@ async def main():
                             
                             # Wait longer for Paint to be fully maximized
                             if func_name.startswith("open_paint"):
-                                await asyncio.sleep(1)
+                                await asyncio.sleep(2)
                             elif func_name.startswith("verify_consistency"):
                                 await asyncio.sleep(5)
+                            else:
+                                await asyncio.sleep(1)
 
                             print(f"DEBUG: Raw result: {result}")
                             
@@ -353,6 +355,7 @@ async def main():
                                 f"In the {iteration + 1} you completed calculations with {response_text}."
                                 f"Now call the paint tools starting with open_paint"
                                 f"Then draw_rectangle with Rectangle co-ordinates followed by add_text_in_paint with the {response_text} as text."
+                                "Proceed with the next step. Do not generate any additional text. I repeat, do not generate any additional text."
                             )
                         last_response = iteration_result
                         # Commented out the manual call of paint tools
