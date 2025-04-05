@@ -142,6 +142,7 @@ async def main():
                 Instructions:
                 - Start by calling the show_reasoning tool with a list of step-by-step reasoning steps explaining how you will solve the problem.
                 - When reasoning, tag each step with the reasoning type (e.g., [Arithmetic], [Logical Check]).
+                - Once Reasoning is shown, proceed further to solve the problem using the available tools.
                 - Use all available math tools to solve the problem step-by-step.
                 - When a function returns multiple values, process all of them.
                 - Apply BODMAS rules: start with the innermost parentheses and work outward.
@@ -151,6 +152,9 @@ async def main():
                 - After calculating a number, verify it by calling:
                 FUNCTION_CALL: {{"name": "verify_calculation", "arguments": {{"expression": <MATH_EXPRESSION>, "expected": <NUMBER>}}}}
                 - If verify_calculation returns False, re-evaluate your previous steps.
+                - Once you reach a final answer, check for consistency of all steps and calculations by calling:
+                FUNCTION_CALL: {{"name": "verify_consistency", "arguments": {{"steps": [[<MATH_EXPRESSION1>, <ANSWER1>], [<MATH_EXPRESSION2>, <ANSWER2>], ...]}}}} 
+                - If verify_consistency returns False, re-evaluate your previous steps.
                 - Once verified, submit your final result using:
                 FINAL_ANSWER: <NUMBER>
 
@@ -232,6 +236,7 @@ async def main():
                         # parts = [p.strip() for p in function_info.split("|")]
                         # func_name, params = parts[0], parts[1:]
                         function_info = function_info.strip()
+                        print(f"DEBUG: Raw function info: {function_info}")
                         function_info = json.loads(function_info)
 
                         func_name = function_info.get("name")
@@ -266,6 +271,15 @@ async def main():
                                 
                                 print(f"DEBUG: Converting parameter {param_name} with value {value} to type {param_type}")
                                 
+                                # Hard-coding processing of verify_consistency as it is more complex
+                                # if func_name == "verify_consistency":
+                                #     # Convert the value to a list of tuples
+                                #     value = value.strip('[()]').split('), (')
+                                #     value = [(item.split(',')[0].strip("' "), float(item.split(',')[1].strip())) for item in value]
+                                #     arguments[param_name] = value
+                                #     print(f"DEBUG: Converted verify_consistency parameters: {arguments[param_name]}")
+                                #     continue
+
                                 # Convert the value to the correct type based on the schema
                                 if param_type == 'integer':
                                     arguments[param_name] = int(value)
@@ -273,7 +287,12 @@ async def main():
                                     arguments[param_name] = float(value)
                                 elif param_type == 'array':
                                     # Handle array input
-                                    if isinstance(value, str):
+                                    ## Hard-coding processing of verify_consistency as it is more complex
+                                    if func_name == "verify_consistency":
+                                        value = [(val[0], val[1]) for val in value]
+                                        arguments[param_name] = value
+                                        continue
+                                    elif isinstance(value, str):
                                         value = value.strip('[]').split(',')
                                     arguments[param_name] = [int(x.strip()) if x.strip().isdigit() else str(x.strip()) for x in value]
                                 else:
@@ -287,6 +306,8 @@ async def main():
                             # Wait longer for Paint to be fully maximized
                             if func_name.startswith("open_paint"):
                                 await asyncio.sleep(1)
+                            elif func_name.startswith("verify_consistency"):
+                                await asyncio.sleep(5)
 
                             print(f"DEBUG: Raw result: {result}")
                             
